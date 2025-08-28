@@ -25,7 +25,7 @@ const Profile = () => {
   const [address, setAddress] = useState('');
   const [phone, setPhone] = useState('');
   const [role, setRole] = useState('user');
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
   const [saving, setSaving] = useState(false);
 
   useEffect(() => {
@@ -35,6 +35,7 @@ const Profile = () => {
   }, [user]);
 
   const fetchProfile = async () => {
+    setLoading(true);
     try {
       const { data, error } = await supabase
         .from('profiles')

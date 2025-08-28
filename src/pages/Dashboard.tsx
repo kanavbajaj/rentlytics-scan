@@ -34,7 +34,7 @@ const Dashboard = () => {
   const role = profile?.role || 'user';
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
-  const [loading, setLoading] = useState(true);
+  const [loading, setLoading] = useState(false);
 
   useEffect(() => {
     if (user) {
@@ -43,6 +43,7 @@ const Dashboard = () => {
   }, [user, role]);
 
   const fetchData = async () => {
+    setLoading(true);
     try {
       const { data: vehiclesData, error: vehiclesError } = await supabase
         .from('vehicles')
