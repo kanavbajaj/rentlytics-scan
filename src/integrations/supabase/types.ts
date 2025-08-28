@@ -14,7 +14,134 @@ export type Database = {
   }
   public: {
     Tables: {
-      [_ in never]: never
+      profiles: {
+        Row: {
+          address: string | null
+          created_at: string
+          id: string
+          name: string
+          phone: string | null
+          role: string | null
+          updated_at: string
+          user_id: string
+        }
+        Insert: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id: string
+        }
+        Update: {
+          address?: string | null
+          created_at?: string
+          id?: string
+          name?: string
+          phone?: string | null
+          role?: string | null
+          updated_at?: string
+          user_id?: string
+        }
+        Relationships: []
+      }
+      rentals: {
+        Row: {
+          check_in_date: string | null
+          check_out_date: string
+          created_at: string
+          downtime: number | null
+          expected_return_date: string
+          fuel_usage: number | null
+          id: string
+          idle_time: number | null
+          no_operating_days: number | null
+          updated_at: string
+          user_id: string
+          vehicle_id: string
+          working_time: number | null
+        }
+        Insert: {
+          check_in_date?: string | null
+          check_out_date?: string
+          created_at?: string
+          downtime?: number | null
+          expected_return_date: string
+          fuel_usage?: number | null
+          id?: string
+          idle_time?: number | null
+          no_operating_days?: number | null
+          updated_at?: string
+          user_id: string
+          vehicle_id: string
+          working_time?: number | null
+        }
+        Update: {
+          check_in_date?: string | null
+          check_out_date?: string
+          created_at?: string
+          downtime?: number | null
+          expected_return_date?: string
+          fuel_usage?: number | null
+          id?: string
+          idle_time?: number | null
+          no_operating_days?: number | null
+          updated_at?: string
+          user_id?: string
+          vehicle_id?: string
+          working_time?: number | null
+        }
+        Relationships: [
+          {
+            foreignKeyName: "rentals_vehicle_id_fkey"
+            columns: ["vehicle_id"]
+            isOneToOne: false
+            referencedRelation: "vehicles"
+            referencedColumns: ["id"]
+          },
+        ]
+      }
+      vehicles: {
+        Row: {
+          capacity: string
+          created_at: string
+          fuel_type: string | null
+          id: string
+          is_rented: boolean
+          location: string | null
+          name: string
+          qr_code: string
+          type: Database["public"]["Enums"]["vehicle_type"]
+          updated_at: string
+        }
+        Insert: {
+          capacity: string
+          created_at?: string
+          fuel_type?: string | null
+          id?: string
+          is_rented?: boolean
+          location?: string | null
+          name: string
+          qr_code?: string
+          type: Database["public"]["Enums"]["vehicle_type"]
+          updated_at?: string
+        }
+        Update: {
+          capacity?: string
+          created_at?: string
+          fuel_type?: string | null
+          id?: string
+          is_rented?: boolean
+          location?: string | null
+          name?: string
+          qr_code?: string
+          type?: Database["public"]["Enums"]["vehicle_type"]
+          updated_at?: string
+        }
+        Relationships: []
+      }
     }
     Views: {
       [_ in never]: never
@@ -23,7 +150,13 @@ export type Database = {
       [_ in never]: never
     }
     Enums: {
-      [_ in never]: never
+      vehicle_type:
+        | "excavator"
+        | "truck"
+        | "crane"
+        | "bulldozer"
+        | "forklift"
+        | "other"
     }
     CompositeTypes: {
       [_ in never]: never
@@ -150,6 +283,15 @@ export type CompositeTypes<
 
 export const Constants = {
   public: {
-    Enums: {},
+    Enums: {
+      vehicle_type: [
+        "excavator",
+        "truck",
+        "crane",
+        "bulldozer",
+        "forklift",
+        "other",
+      ],
+    },
   },
 } as const
