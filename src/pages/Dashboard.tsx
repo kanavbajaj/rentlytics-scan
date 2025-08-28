@@ -19,6 +19,7 @@ interface Vehicle {
 
 interface Rental {
   id: string;
+  user_id: string;
   vehicle_id: string;
   check_out_date: string;
   expected_return_date: string;
@@ -26,74 +27,43 @@ interface Rental {
   idle_time: number;
   working_time: number;
   fuel_usage: number;
-  vehicles: Vehicle;
-}
-
-interface Profile {
-  role: string;
-  name: string;
 }
 
 const Dashboard = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const role = profile?.role || 'user';
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
-  const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
       fetchData();
     }
-  }, [user]);
+  }, [user, role]);
 
   const fetchData = async () => {
     try {
-      // Fetch user profile
-      const { data: profileData } = await supabase
-        .from('profiles')
-        .select('role, name')
-        .eq('user_id', user?.id)
-        .single();
-
-      setProfile(profileData);
-
-      // Fetch vehicles
       const { data: vehiclesData, error: vehiclesError } = await supabase
         .from('vehicles')
         .select('*')
         .order('name');
 
       if (vehiclesError) throw vehiclesError;
-      setVehicles(vehiclesData);
+      setVehicles(vehiclesData || []);
 
-      // Fetch rentals based on role
-      if (profileData?.role === 'dealer') {
-        const { data: rentalsData, error: rentalsError } = await supabase
-          .from('rentals')
-          .select(`
-            *,
-            vehicles (*)
-          `)
-          .is('check_in_date', null)
-          .order('expected_return_date');
+      const rentalsQuery = supabase
+        .from('rentals')
+        .select('*')
+        .is('check_in_date', null)
+        .order('expected_return_date');
 
-        if (rentalsError) throw rentalsError;
-        setRentals(rentalsData);
-      } else {
-        const { data: rentalsData, error: rentalsError } = await supabase
-          .from('rentals')
-          .select(`
-            *,
-            vehicles (*)
-          `)
-          .eq('user_id', user?.id)
-          .is('check_in_date', null)
-          .order('expected_return_date');
+      const { data: rentalsData, error: rentalsError } = role === 'dealer'
+        ? await rentalsQuery
+        : await rentalsQuery.eq('user_id', user?.id || '');
 
-        if (rentalsError) throw rentalsError;
-        setRentals(rentalsData);
-      }
+      if (rentalsError) throw rentalsError;
+      setRentals(rentalsData || []);
     } catch (error: any) {
       toast({
         title: "Error",
@@ -119,8 +89,14 @@ const Dashboard = () => {
     return <div>Loading...</div>;
   }
 
-  const availableVehicles = vehicles.filter(v => !v.is_rented);
-  const rentedVehicles = vehicles.filter(v => v.is_rented);
+  const rentalByVehicleId: Record<string, Rental> = Object.fromEntries(
+    rentals.map(r => [r.vehicle_id, r])
+  );
+
+  const availableVehicles = vehicles.filter(v => !rentalByVehicleId[v.id]);
+  const rentedVehicles = vehicles.filter(v => !!rentalByVehicleId[v.id]);
+  const myRentedVehicles = vehicles.filter(v => rentalByVehicleId[v.id]?.user_id === user?.id);
+  const rentedVehiclesForDealer = vehicles.filter(v => !!rentalByVehicleId[v.id]);
   const overdueRentals = rentals.filter(r => isOverdue(r.expected_return_date));
   const dueSoonRentals = rentals.filter(r => isDueSoon(r.expected_return_date));
 
@@ -202,7 +178,7 @@ const Dashboard = () => {
             {overdueRentals.map((rental) => (
               <div key={rental.id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
                 <div>
-                  <p className="font-medium text-red-800">{rental.vehicles.name} - OVERDUE</p>
+                  <p className="font-medium text-red-800">Vehicle ID {rental.vehicle_id} - OVERDUE</p>
                   <p className="text-sm text-red-600">
                     Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
                   </p>
@@ -214,7 +190,7 @@ const Dashboard = () => {
             {dueSoonRentals.map((rental) => (
               <div key={rental.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
                 <div>
-                  <p className="font-medium text-orange-800">{rental.vehicles.name} - Due Soon</p>
+                  <p className="font-medium text-orange-800">Vehicle ID {rental.vehicle_id} - Due Soon</p>
                   <p className="text-sm text-orange-600">
                     Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
                   </p>
@@ -226,51 +202,104 @@ const Dashboard = () => {
         </Card>
       )}
 
-      {/* Recent Rentals */}
-      {rentals.length > 0 && (
-        <Card>
-          <CardHeader>
-            <CardTitle>Active Rentals</CardTitle>
-            <CardDescription>
-              {profile?.role === 'dealer' ? 'All active rentals' : 'Your current rentals'}
-            </CardDescription>
-          </CardHeader>
-          <CardContent>
-            <div className="space-y-4">
-              {rentals.slice(0, 5).map((rental) => (
-                <div key={rental.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
-                  <div className="flex items-center space-x-4">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      <Truck className="h-5 w-5 text-primary" />
-                    </div>
+      {/* Role-based sections */}
+      {role !== 'dealer' ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Vehicles</CardTitle>
+              <CardDescription>Vehicles you can rent</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableVehicles.map((vehicle) => (
+                  <div key={vehicle.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
                     <div>
-                      <p className="font-medium">{rental.vehicles.name}</p>
+                      <p className="font-medium">{vehicle.name}</p>
                       <p className="text-sm text-muted-foreground capitalize">
-                        {rental.vehicles.type} • {rental.vehicles.capacity}
+                        {vehicle.type} • {vehicle.capacity}
                       </p>
+                    </div>
+                    <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>My Current Rentals</CardTitle>
+              <CardDescription>Your active rentals</CardDescription>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {rentals.filter(r => r.user_id === user?.id).slice(0, 5).map((rental) => (
+                  <div key={rental.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div>
+                      <p className="font-medium">Vehicle ID {rental.vehicle_id}</p>
                       <p className="text-sm text-muted-foreground">
                         Return by: {new Date(rental.expected_return_date).toLocaleDateString()}
                       </p>
                     </div>
+                    <Badge variant="destructive">Rented</Badge>
                   </div>
-                  <div className="text-right">
-                    <div className="text-sm space-y-1">
-                      <p>Working: {rental.working_time}h</p>
-                      <p>Fuel: {rental.fuel_usage}L</p>
-                    </div>
-                  </div>
-                </div>
-              ))}
-            </div>
-            {rentals.length > 5 && (
-              <div className="mt-4 text-center">
-                <Link to="/vehicles">
-                  <Button variant="outline">View All Rentals</Button>
-                </Link>
+                ))}
               </div>
-            )}
-          </CardContent>
-        </Card>
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fleet (All Vehicles)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {vehicles.map((vehicle) => {
+                  const rental = rentalByVehicleId[vehicle.id];
+                  return (
+                    <div key={vehicle.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                      <div>
+                        <p className="font-medium">{vehicle.name}</p>
+                        <p className="text-sm text-muted-foreground capitalize">
+                          {vehicle.type} • {vehicle.capacity}
+                        </p>
+                      </div>
+                      {rental ? (
+                        <Badge variant="destructive">Rented</Badge>
+                      ) : (
+                        <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>
+                      )}
+                    </div>
+                  );
+                })}
+              </div>
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Rentals</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="space-y-4">
+                {rentals.slice(0, 8).map((rental) => (
+                  <div key={rental.id} className="flex items-center justify-between p-4 border border-border rounded-lg">
+                    <div>
+                      <p className="font-medium">Vehicle ID {rental.vehicle_id}</p>
+                      <p className="text-sm text-muted-foreground">
+                        Return by: {new Date(rental.expected_return_date).toLocaleDateString()}
+                      </p>
+                    </div>
+                    <Badge variant="destructive">Rented</Badge>
+                  </div>
+                ))}
+              </div>
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

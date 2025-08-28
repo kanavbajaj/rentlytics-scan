@@ -1,4 +1,4 @@
-import { useEffect, useState } from 'react';
+import { useEffect, useState, useMemo } from 'react';
 import { useAuth } from '@/hooks/useAuth';
 import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
@@ -23,19 +23,18 @@ interface Vehicle {
 interface Rental {
   id: string;
   user_id: string;
+  vehicle_id: string;
   check_out_date: string;
   expected_return_date: string;
   check_in_date: string | null;
   idle_time: number;
   working_time: number;
   fuel_usage: number;
-  profiles: {
-    name: string;
-  };
 }
 
 const Vehicles = () => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const role = profile?.role || 'user';
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [rentals, setRentals] = useState<Record<string, Rental>>({});
   const [filteredVehicles, setFilteredVehicles] = useState<Vehicle[]>([]);
@@ -44,13 +43,15 @@ const Vehicles = () => {
   const [typeFilter, setTypeFilter] = useState('all');
   const [loading, setLoading] = useState(true);
 
+  const isVehicleRented = useMemo(() => (vehicleId: string) => !!rentals[vehicleId], [rentals]);
+
   useEffect(() => {
     fetchVehicles();
   }, []);
 
   useEffect(() => {
     filterVehicles();
-  }, [vehicles, searchTerm, statusFilter, typeFilter]);
+  }, [vehicles, rentals, searchTerm, statusFilter, typeFilter]);
 
   const fetchVehicles = async () => {
     try {
@@ -62,20 +63,17 @@ const Vehicles = () => {
       if (vehiclesError) throw vehiclesError;
       setVehicles(vehiclesData);
 
-      // Fetch rental information for rented vehicles
+      // Fetch active rentals
       const { data: rentalsData, error: rentalsError } = await supabase
         .from('rentals')
-        .select(`
-          *,
-          profiles!inner(name)
-        `)
+        .select('*')
         .is('check_in_date', null);
 
       if (rentalsError) throw rentalsError;
 
       const rentalsMap: Record<string, Rental> = {};
-      rentalsData.forEach(rental => {
-        rentalsMap[rental.vehicle_id] = rental as any;
+      (rentalsData || []).forEach((rental: any) => {
+        rentalsMap[rental.vehicle_id] = rental as Rental;
       });
       setRentals(rentalsMap);
     } catch (error: any) {
@@ -102,7 +100,7 @@ const Vehicles = () => {
 
     if (statusFilter !== 'all') {
       filtered = filtered.filter(vehicle =>
-        statusFilter === 'available' ? !vehicle.is_rented : vehicle.is_rented
+        statusFilter === 'available' ? !isVehicleRented(vehicle.id) : isVehicleRented(vehicle.id)
       );
     }
 
@@ -124,13 +122,9 @@ const Vehicles = () => {
   };
 
   const getStatusBadge = (vehicle: Vehicle) => {
-    if (!vehicle.is_rented) {
-      return <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>;
-    }
-
     const rental = rentals[vehicle.id];
     if (!rental) {
-      return <Badge variant="destructive">Rented</Badge>;
+      return <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>;
     }
 
     if (isOverdue(rental.expected_return_date)) {
@@ -148,8 +142,22 @@ const Vehicles = () => {
     if (!user) return;
 
     try {
+      // Prevent double rent by checking active rental
+      const { data: existing, error: existErr } = await supabase
+        .from('rentals')
+        .select('id')
+        .eq('vehicle_id', vehicleId)
+        .is('check_in_date', null)
+        .maybeSingle();
+      if (existErr) throw existErr;
+      if (existing) {
+        toast({ title: 'Already rented', description: 'This vehicle is currently rented.', variant: 'destructive' });
+        await fetchVehicles();
+        return;
+      }
+
       const expectedReturn = new Date();
-      expectedReturn.setDate(expectedReturn.getDate() + 7); // Default 7 days
+      expectedReturn.setDate(expectedReturn.getDate() + 7);
 
       const { error } = await supabase
         .from('rentals')
@@ -161,19 +169,12 @@ const Vehicles = () => {
 
       if (error) throw error;
 
-      const { error: updateError } = await supabase
-        .from('vehicles')
-        .update({ is_rented: true })
-        .eq('id', vehicleId);
-
-      if (updateError) throw updateError;
+      await fetchVehicles();
 
       toast({
         title: "Success",
         description: "Vehicle rented successfully!",
       });
-
-      fetchVehicles();
     } catch (error: any) {
       toast({
         title: "Error",
@@ -188,6 +189,9 @@ const Vehicles = () => {
   }
 
   const vehicleTypes = [...new Set(vehicles.map(v => v.type))];
+  const availableVehicles = filteredVehicles.filter(v => !isVehicleRented(v.id));
+  const myRentedVehicles = filteredVehicles.filter(v => rentals[v.id]?.user_id === user?.id);
+  const rentedVehiclesForDealer = filteredVehicles.filter(v => isVehicleRented(v.id));
 
   return (
     <div className="space-y-6">
@@ -243,93 +247,189 @@ const Vehicles = () => {
         </CardContent>
       </Card>
 
-      {/* Vehicles Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-        {filteredVehicles.map((vehicle) => {
-          const rental = rentals[vehicle.id];
-          
-          return (
-            <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
-              <CardHeader>
-                <div className="flex justify-between items-start">
-                  <div className="flex items-center space-x-3">
-                    <div className="bg-primary/10 p-2 rounded-lg">
-                      <Truck className="h-5 w-5 text-primary" />
-                    </div>
-                    <div>
-                      <CardTitle className="text-lg">{vehicle.name}</CardTitle>
-                      <CardDescription className="capitalize">
-                        {vehicle.type} • {vehicle.capacity}
-                      </CardDescription>
-                    </div>
-                  </div>
-                  {getStatusBadge(vehicle)}
-                </div>
-              </CardHeader>
-              
-              <CardContent className="space-y-4">
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <MapPin className="h-4 w-4" />
-                  <span>{vehicle.location}</span>
-                </div>
-                
-                <div className="flex items-center space-x-2 text-sm text-muted-foreground">
-                  <Fuel className="h-4 w-4" />
-                  <span className="capitalize">{vehicle.fuel_type}</span>
-                </div>
-
-                {vehicle.is_rented && rental && (
-                  <div className="bg-muted p-3 rounded-lg space-y-2">
-                    <p className="text-sm font-medium">Rental Information</p>
-                    <div className="grid grid-cols-2 gap-2 text-sm">
-                      <div>
-                        <p className="text-muted-foreground">Rented by:</p>
-                        <p className="font-medium">{rental.profiles.name}</p>
+      {/* Role-based sections */}
+      {role !== 'dealer' ? (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Available Vehicles</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {availableVehicles.map((vehicle) => (
+                  <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-primary/10 p-2 rounded-lg">
+                            <Truck className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{vehicle.name}</CardTitle>
+                            <CardDescription className="capitalize">
+                              {vehicle.type} • {vehicle.capacity}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        {getStatusBadge(vehicle)}
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Return date:</p>
-                        <p className="font-medium">
-                          {new Date(rental.expected_return_date).toLocaleDateString()}
-                        </p>
+                    </CardHeader>
+                    <CardContent className="space-y-4">
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span>{vehicle.location}</span>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Working time:</p>
-                        <p className="font-medium">{rental.working_time}h</p>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <Fuel className="h-4 w-4" />
+                        <span className="capitalize">{vehicle.fuel_type}</span>
                       </div>
-                      <div>
-                        <p className="text-muted-foreground">Fuel usage:</p>
-                        <p className="font-medium">{rental.fuel_usage}L</p>
+                      <Button 
+                        className="w-full" 
+                        onClick={() => handleRentVehicle(vehicle.id)}
+                      >
+                        Rent Vehicle
+                      </Button>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {availableVehicles.length === 0 && (
+                <p className="text-sm text-muted-foreground">No available vehicles at the moment.</p>
+              )}
+            </CardContent>
+          </Card>
+
+          <Card>
+            <CardHeader>
+              <CardTitle>My Current Rentals</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredVehicles.filter(v => rentals[v.id]?.user_id === user?.id).map((vehicle) => {
+                  const rental = rentals[vehicle.id]!;
+                  return (
+                    <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-primary/10 p-2 rounded-lg">
+                              <Truck className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{vehicle.name}</CardTitle>
+                              <CardDescription className="capitalize">
+                                {vehicle.type} • {vehicle.capacity}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          {getStatusBadge(vehicle)}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2 text-sm text-muted-foreground">
+                        <div>Location: {vehicle.location}</div>
+                        <div>Fuel: <span className="capitalize">{vehicle.fuel_type}</span></div>
+                        <div>Return by: {new Date(rental.expected_return_date).toLocaleDateString()}</div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {filteredVehicles.filter(v => rentals[v.id]?.user_id === user?.id).length === 0 && (
+                <p className="text-sm text-muted-foreground">You have no active rentals.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
+      ) : (
+        <>
+          <Card>
+            <CardHeader>
+              <CardTitle>Fleet (All Vehicles)</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredVehicles.map((vehicle) => (
+                  <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                    <CardHeader>
+                      <div className="flex justify-between items-start">
+                        <div className="flex items-center space-x-3">
+                          <div className="bg-primary/10 p-2 rounded-lg">
+                            <Truck className="h-5 w-5 text-primary" />
+                          </div>
+                          <div>
+                            <CardTitle className="text-lg">{vehicle.name}</CardTitle>
+                            <CardDescription className="capitalize">
+                              {vehicle.type} • {vehicle.capacity}
+                            </CardDescription>
+                          </div>
+                        </div>
+                        {getStatusBadge(vehicle)}
                       </div>
-                    </div>
-                  </div>
-                )}
+                    </CardHeader>
+                    <CardContent className="space-y-3">
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <MapPin className="h-4 w-4" />
+                        <span>{vehicle.location}</span>
+                      </div>
+                      <div className="flex items-center space-x-2 text-sm text-muted-foreground">
+                        <Fuel className="h-4 w-4" />
+                        <span className="capitalize">{vehicle.fuel_type}</span>
+                      </div>
+                      <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">
+                        QR: {vehicle.qr_code}
+                      </div>
+                    </CardContent>
+                  </Card>
+                ))}
+              </div>
+              {filteredVehicles.length === 0 && (
+                <p className="text-sm text-muted-foreground">No vehicles found</p>
+              )}
+            </CardContent>
+          </Card>
 
-                {!vehicle.is_rented && (
-                  <Button 
-                    className="w-full" 
-                    onClick={() => handleRentVehicle(vehicle.id)}
-                  >
-                    Rent Vehicle
-                  </Button>
-                )}
-
-                <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">
-                  QR: {vehicle.qr_code}
-                </div>
-              </CardContent>
-            </Card>
-          );
-        })}
-      </div>
-
-      {filteredVehicles.length === 0 && (
-        <Card>
-          <CardContent className="text-center py-8">
-            <Truck className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
-            <p className="text-lg font-medium text-muted-foreground">No vehicles found</p>
-            <p className="text-sm text-muted-foreground">Try adjusting your filters</p>
-          </CardContent>
-        </Card>
+          <Card>
+            <CardHeader>
+              <CardTitle>Active Rentals</CardTitle>
+            </CardHeader>
+            <CardContent>
+              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+                {filteredVehicles.filter(v => isVehicleRented(v.id)).map((vehicle) => {
+                  const rental = rentals[vehicle.id]!;
+                  return (
+                    <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                      <CardHeader>
+                        <div className="flex justify-between items-start">
+                          <div className="flex items-center space-x-3">
+                            <div className="bg-primary/10 p-2 rounded-lg">
+                              <Truck className="h-5 w-5 text-primary" />
+                            </div>
+                            <div>
+                              <CardTitle className="text-lg">{vehicle.name}</CardTitle>
+                              <CardDescription className="capitalize">
+                                {vehicle.type} • {vehicle.capacity}
+                              </CardDescription>
+                            </div>
+                          </div>
+                          {getStatusBadge(vehicle)}
+                        </div>
+                      </CardHeader>
+                      <CardContent className="space-y-2 text-sm text-muted-foreground">
+                        <div>Location: {vehicle.location}</div>
+                        <div>Fuel: <span className="capitalize">{vehicle.fuel_type}</span></div>
+                        <div>Return by: {new Date(rental.expected_return_date).toLocaleDateString()}</div>
+                        <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">QR: {vehicle.qr_code}</div>
+                      </CardContent>
+                    </Card>
+                  );
+                })}
+              </div>
+              {filteredVehicles.filter(v => isVehicleRented(v.id)).length === 0 && (
+                <p className="text-sm text-muted-foreground">No active rentals.</p>
+              )}
+            </CardContent>
+          </Card>
+        </>
       )}
     </div>
   );

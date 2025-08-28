@@ -17,6 +17,7 @@ interface AuthContextType {
   profile: Profile | null;
   loading: boolean;
   signOut: () => Promise<void>;
+  error: string | null;
 }
 
 const AuthContext = createContext<AuthContextType>({
@@ -25,6 +26,7 @@ const AuthContext = createContext<AuthContextType>({
   profile: null,
   loading: true,
   signOut: async () => {},
+  error: null,
 });
 
 export const useAuth = () => {
@@ -40,37 +42,67 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   const [session, setSession] = useState<Session | null>(null);
   const [profile, setProfile] = useState<Profile | null>(null);
   const [loading, setLoading] = useState(true);
+  const [error, setError] = useState<string | null>(null);
 
   useEffect(() => {
+    // Clean any legacy Supabase auth keys from localStorage (we now use sessionStorage)
+    try {
+      Object.keys(localStorage).forEach((key) => {
+        if (key.startsWith('supabase.auth.') || key.includes('sb-')) {
+          localStorage.removeItem(key);
+        }
+      });
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    // Safety: if auth never responds, stop loading after 3s
+    const safetyTimer = setTimeout(() => {
+      setLoading((prev) => (prev ? false : prev));
+    }, 3000);
+
     const { data: { subscription } } = supabase.auth.onAuthStateChange(
-      async (event, session) => {
+      async (_event, session) => {
         setSession(session);
         setUser(session?.user ?? null);
-        
+        // Auth is ready; don't block UI on profile fetch
+        setLoading(false);
+
         if (session?.user) {
-          // Fetch user profile
-          setTimeout(async () => {
-            const { data } = await supabase
+          try {
+            const { data, error } = await supabase
               .from("profiles")
               .select("*")
               .eq("user_id", session.user.id)
-              .single();
+              .maybeSingle();
+            if (error) setError("Failed to fetch profile: " + error.message);
             setProfile(data);
-          }, 0);
+          } catch (err: any) {
+            setError("Unexpected error: " + err.message);
+          }
         } else {
           setProfile(null);
         }
-        setLoading(false);
       }
     );
 
-    supabase.auth.getSession().then(({ data: { session } }) => {
-      setSession(session);
-      setUser(session?.user ?? null);
-      setLoading(false);
-    });
+    supabase.auth.getSession()
+      .then(({ data: { session }, error }) => {
+        setSession(session);
+        setUser(session?.user ?? null);
+        if (error) setError("Failed to get session: " + error.message);
+        // Auth readiness reached
+        setLoading(false);
+      })
+      .catch((err) => {
+        setError("Unexpected error: " + err.message);
+        setLoading(false);
+      });
 
-    return () => subscription.unsubscribe();
+    return () => {
+      clearTimeout(safetyTimer);
+      subscription.unsubscribe();
+    };
   }, []);
 
   const signOut = async () => {
@@ -81,7 +113,7 @@ export const AuthProvider = ({ children }: { children: React.ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, session, profile, loading, signOut }}>
+    <AuthContext.Provider value={{ user, session, profile, loading, signOut, error }}>
       {children}
     </AuthContext.Provider>
   );

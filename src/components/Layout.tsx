@@ -10,7 +10,8 @@ interface LayoutProps {
 }
 
 const Layout = ({ children }: LayoutProps) => {
-  const { user } = useAuth();
+  const { user, profile } = useAuth();
+  const role = profile?.role || 'user';
   const location = useLocation();
 
   const cleanupAuthState = () => {
@@ -72,16 +73,18 @@ const Layout = ({ children }: LayoutProps) => {
                 </Button>
               </Link>
               
-              <Link to="/scanner">
-                <Button
-                  variant={location.pathname === '/scanner' ? 'default' : 'ghost'}
-                  size="sm"
-                  className="flex items-center space-x-2"
-                >
-                  <QrCode className="h-4 w-4" />
-                  <span>QR Scanner</span>
-                </Button>
-              </Link>
+              {role === 'dealer' && (
+                <Link to="/scanner">
+                  <Button
+                    variant={location.pathname === '/scanner' ? 'default' : 'ghost'}
+                    size="sm"
+                    className="flex items-center space-x-2"
+                  >
+                    <QrCode className="h-4 w-4" />
+                    <span>QR Scanner</span>
+                  </Button>
+                </Link>
+              )}
               
               <Link to="/profile">
                 <Button

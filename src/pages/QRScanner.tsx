@@ -23,14 +23,13 @@ interface Vehicle {
 interface Rental {
   id: string;
   user_id: string;
+  vehicle_id: string;
   check_out_date: string;
   expected_return_date: string;
+  check_in_date: string | null;
   idle_time: number;
   working_time: number;
   fuel_usage: number;
-  profiles: {
-    name: string;
-  };
 }
 
 const QRScanner = () => {
@@ -45,18 +44,17 @@ const QRScanner = () => {
 
     setLoading(true);
     try {
-      // Find vehicle by QR code
       const { data: vehicleData, error: vehicleError } = await supabase
         .from('vehicles')
         .select('*')
-        .eq('qr_code', qrCode.trim())
-        .single();
+        .eq('id', qrCode.trim())
+        .maybeSingle();
 
-      if (vehicleError) {
+      if (vehicleError || !vehicleData) {
         toast({
-          title: "Vehicle not found",
-          description: "No vehicle found with this QR code",
-          variant: "destructive",
+          title: 'Vehicle not found',
+          description: 'No vehicle found with this ID',
+          variant: 'destructive',
         });
         setVehicle(null);
         setRental(null);
@@ -65,32 +63,18 @@ const QRScanner = () => {
 
       setVehicle(vehicleData);
 
-      // If vehicle is rented, get rental information
-      if (vehicleData.is_rented) {
-        const { data: rentalData, error: rentalError } = await supabase
-          .from('rentals')
-          .select(`
-            *,
-            profiles!inner(name)
-          `)
-          .eq('vehicle_id', vehicleData.id)
-          .is('check_in_date', null)
-          .single();
-
-        if (rentalError) {
-          console.error('Error fetching rental:', rentalError);
-          setRental(null);
-        } else {
-          setRental(rentalData as any);
-        }
-      } else {
-        setRental(null);
-      }
+      const { data: rentalData } = await supabase
+        .from('rentals')
+        .select('*')
+        .eq('vehicle_id', vehicleData.id)
+        .is('check_in_date', null)
+        .maybeSingle();
+      setRental(rentalData || null);
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: 'Error',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     } finally {
       setLoading(false);
@@ -101,8 +85,21 @@ const QRScanner = () => {
     if (!vehicle || !user) return;
 
     try {
+      // Guard: prevent double-rent
+      const { data: existing } = await supabase
+        .from('rentals')
+        .select('id')
+        .eq('vehicle_id', vehicle.id)
+        .is('check_in_date', null)
+        .maybeSingle();
+      if (existing) {
+        toast({ title: 'Already rented', description: 'This vehicle is currently rented.', variant: 'destructive' });
+        await handleScan();
+        return;
+      }
+
       const expectedReturn = new Date();
-      expectedReturn.setDate(expectedReturn.getDate() + 7); // Default 7 days
+      expectedReturn.setDate(expectedReturn.getDate() + 7);
 
       const { error: rentalError } = await supabase
         .from('rentals')
@@ -114,25 +111,17 @@ const QRScanner = () => {
 
       if (rentalError) throw rentalError;
 
-      const { error: updateError } = await supabase
-        .from('vehicles')
-        .update({ is_rented: true })
-        .eq('id', vehicle.id);
-
-      if (updateError) throw updateError;
-
       toast({
-        title: "Success",
-        description: "Vehicle checked out successfully!",
+        title: 'Success',
+        description: 'Vehicle checked out successfully!',
       });
 
-      // Refresh data
-      handleScan();
+      await handleScan();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: 'Error',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     }
   };
@@ -148,25 +137,17 @@ const QRScanner = () => {
 
       if (rentalError) throw rentalError;
 
-      const { error: updateError } = await supabase
-        .from('vehicles')
-        .update({ is_rented: false })
-        .eq('id', vehicle.id);
-
-      if (updateError) throw updateError;
-
       toast({
-        title: "Success",
-        description: "Vehicle checked in successfully!",
+        title: 'Success',
+        description: 'Vehicle checked in successfully!',
       });
 
-      // Refresh data
-      handleScan();
+      await handleScan();
     } catch (error: any) {
       toast({
-        title: "Error",
+        title: 'Error',
         description: error.message,
-        variant: "destructive",
+        variant: 'destructive',
       });
     }
   };
@@ -179,7 +160,7 @@ const QRScanner = () => {
     <div className="space-y-6">
       <div>
         <h1 className="text-3xl font-bold text-foreground">QR Scanner</h1>
-        <p className="text-muted-foreground">Scan vehicle QR codes for check-in/check-out</p>
+        <p className="text-muted-foreground">Scan vehicle IDs for check-in/check-out</p>
       </div>
 
       {/* QR Scanner Input */}
@@ -187,21 +168,21 @@ const QRScanner = () => {
         <CardHeader>
           <CardTitle className="flex items-center space-x-2">
             <QrCode className="h-5 w-5" />
-            <span>Scan QR Code</span>
+            <span>Scan Vehicle ID</span>
           </CardTitle>
           <CardDescription>
-            Enter or scan the vehicle QR code to view details and manage rentals
+            Enter or scan the vehicle ID to view details and manage rentals
           </CardDescription>
         </CardHeader>
         <CardContent className="space-y-4">
           <div className="space-y-2">
-            <Label htmlFor="qr-code">QR Code</Label>
+            <Label htmlFor="qr-code">Vehicle ID</Label>
             <Input
               id="qr-code"
-              placeholder="Enter QR code..."
+              placeholder="Enter vehicle ID..."
               value={qrCode}
               onChange={(e) => setQrCode(e.target.value)}
-              onKeyPress={(e) => e.key === 'Enter' && handleScan()}
+              onKeyDown={(e) => e.key === 'Enter' && handleScan()}
             />
           </div>
           <Button onClick={handleScan} disabled={loading || !qrCode.trim()}>
@@ -226,12 +207,11 @@ const QRScanner = () => {
                   </CardDescription>
                 </div>
               </div>
-              <Badge 
-                variant={vehicle.is_rented ? "destructive" : "secondary"}
-                className={vehicle.is_rented ? "" : "bg-green-100 text-green-800"}
-              >
-                {vehicle.is_rented ? "Rented" : "Available"}
-              </Badge>
+              {rental ? (
+                <Badge variant="destructive">Rented</Badge>
+              ) : (
+                <Badge variant="secondary" className="bg-green-100 text-green-800">Available</Badge>
+              )}
             </div>
           </CardHeader>
           
@@ -247,14 +227,10 @@ const QRScanner = () => {
               </div>
             </div>
 
-            {vehicle.is_rented && rental && (
+            {rental && (
               <div className="bg-muted p-4 rounded-lg space-y-3">
                 <h3 className="font-medium">Current Rental Information</h3>
                 <div className="grid grid-cols-2 gap-4 text-sm">
-                  <div>
-                    <p className="text-muted-foreground">Rented by:</p>
-                    <p className="font-medium">{rental.profiles.name}</p>
-                  </div>
                   <div>
                     <p className="text-muted-foreground">Check-out date:</p>
                     <p className="font-medium">
@@ -265,27 +241,11 @@ const QRScanner = () => {
                     <p className="text-muted-foreground">Expected return:</p>
                     <p className={`font-medium ${isOverdue(rental.expected_return_date) ? 'text-red-600' : ''}`}>
                       {new Date(rental.expected_return_date).toLocaleDateString()}
-                      {isOverdue(rental.expected_return_date) && (
-                        <Badge variant="destructive" className="ml-2">Overdue</Badge>
-                      )}
                     </p>
                   </div>
-                  <div>
-                    <p className="text-muted-foreground">Days rented:</p>
-                    <p className="font-medium">
-                      {Math.ceil((new Date().getTime() - new Date(rental.check_out_date).getTime()) / (1000 * 60 * 60 * 24))}
-                    </p>
-                  </div>
-                </div>
-
-                <div className="grid grid-cols-3 gap-4 text-sm">
                   <div>
                     <p className="text-muted-foreground">Working time:</p>
                     <p className="font-medium">{rental.working_time} hours</p>
-                  </div>
-                  <div>
-                    <p className="text-muted-foreground">Idle time:</p>
-                    <p className="font-medium">{rental.idle_time} hours</p>
                   </div>
                   <div>
                     <p className="text-muted-foreground">Fuel usage:</p>
@@ -297,7 +257,7 @@ const QRScanner = () => {
 
             {/* Action Buttons */}
             <div className="flex space-x-4">
-              {vehicle.is_rented ? (
+              {rental ? (
                 <Button onClick={handleCheckIn} className="flex items-center space-x-2">
                   <CheckCircle className="h-4 w-4" />
                   <span>Check In (Return)</span>
@@ -318,7 +278,7 @@ const QRScanner = () => {
           <CardContent className="text-center py-8">
             <QrCode className="h-12 w-12 text-muted-foreground mx-auto mb-4" />
             <p className="text-lg font-medium text-muted-foreground">No vehicle found</p>
-            <p className="text-sm text-muted-foreground">Please check the QR code and try again</p>
+            <p className="text-sm text-muted-foreground">Please check the vehicle ID and try again</p>
           </CardContent>
         </Card>
       )}
