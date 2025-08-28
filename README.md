@@ -1,73 +1,63 @@
-# Welcome to your Lovable project
+# Rentlytics Scan
 
-## Project info
+A comprehensive vehicle rental management system with QR code scanning capabilities.
 
-**URL**: https://lovable.dev/projects/cf243208-4a1e-4e80-92a3-88e1e3349845
+## Features
 
-## How can I edit this code?
+### QR Code Scanning
+The system now supports three different ways to scan QR codes:
 
-There are several ways of editing your application.
+1. **Manual Input**: Type or paste vehicle IDs directly
+2. **Camera Scanner**: Real-time QR code scanning using your device's camera
+3. **Photo Upload**: Upload photos containing QR codes for automatic scanning
 
-**Use Lovable**
+### Photo Upload QR Scanning
+- **Supported Formats**: JPG, PNG, GIF
+- **File Size Limit**: Maximum 5MB
+- **Automatic Processing**: QR codes are automatically detected and processed
+- **Real-time Feedback**: Visual feedback during image processing
+- **Error Handling**: Clear error messages for unsupported files or failed scans
 
-Simply visit the [Lovable Project](https://lovable.dev/projects/cf243208-4a1e-4e80-92a3-88e1e3349845) and start prompting.
+### Vehicle Management
+- Check-in and check-out vehicles
+- Track rental periods and usage metrics
+- Role-based access control (dealer vs. user)
+- Real-time vehicle status updates
 
-Changes made via Lovable will be committed automatically to this repo.
+## Usage
 
-**Use your preferred IDE**
+### QR Code Photo Upload
+1. Navigate to the QR Scanner page
+2. Select "Upload Photo" mode
+3. Click "Choose Image" to select a photo containing a QR code
+4. The system will automatically process the image and detect any QR codes
+5. If a QR code is found, it will be automatically scanned and the vehicle information will be displayed
+6. You can then proceed with check-in/check-out operations
 
-If you want to work locally using your own IDE, you can clone this repo and push changes. Pushed changes will also be reflected in Lovable.
+### Best Practices for Photo Upload
+- Ensure the QR code is clearly visible in the photo
+- Good lighting conditions improve scan accuracy
+- Avoid blurry or low-resolution images
+- Make sure the QR code takes up a reasonable portion of the image
 
-The only requirement is having Node.js & npm installed - [install with nvm](https://github.com/nvm-sh/nvm#installing-and-updating)
+## Technical Details
 
-Follow these steps:
+- Built with React + TypeScript
+- Uses ZXing library for QR code image processing
+- Supabase backend for data management
+- Responsive design with Tailwind CSS
+- Real-time camera scanning with HTML5 QR Scanner
 
-```sh
-# Step 1: Clone the repository using the project's Git URL.
-git clone <YOUR_GIT_URL>
+## Getting Started
 
-# Step 2: Navigate to the project directory.
-cd <YOUR_PROJECT_NAME>
+1. Install dependencies: `npm install`
+2. Set up your Supabase configuration
+3. Run the development server: `npm run dev`
+4. Access the application at `http://localhost:5173`
 
-# Step 3: Install the necessary dependencies.
-npm i
+## Dependencies
 
-# Step 4: Start the development server with auto-reloading and an instant preview.
-npm run dev
-```
-
-**Edit a file directly in GitHub**
-
-- Navigate to the desired file(s).
-- Click the "Edit" button (pencil icon) at the top right of the file view.
-- Make your changes and commit the changes.
-
-**Use GitHub Codespaces**
-
-- Navigate to the main page of your repository.
-- Click on the "Code" button (green button) near the top right.
-- Select the "Codespaces" tab.
-- Click on "New codespace" to launch a new Codespace environment.
-- Edit files directly within the Codespace and commit and push your changes once you're done.
-
-## What technologies are used for this project?
-
-This project is built with:
-
-- Vite
-- TypeScript
-- React
-- shadcn-ui
-- Tailwind CSS
-
-## How can I deploy this project?
-
-Simply open [Lovable](https://lovable.dev/projects/cf243208-4a1e-4e80-92a3-88e1e3349845) and click on Share -> Publish.
-
-## Can I connect a custom domain to my Lovable project?
-
-Yes, you can!
-
-To connect a domain, navigate to Project > Settings > Domains and click Connect Domain.
-
-Read more here: [Setting up a custom domain](https://docs.lovable.dev/tips-tricks/custom-domain#step-by-step-guide)
+- `@zxing/library` - QR code image processing
+- `html5-qrcode` - Real-time camera scanning
+- `@supabase/supabase-js` - Backend services
+- React ecosystem for the frontend
