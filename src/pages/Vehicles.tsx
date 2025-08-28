@@ -59,7 +59,6 @@ const Vehicles = () => {
   const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
   const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
-
   const isVehicleRented = useMemo(() => (vehicleId: string) => !!rentals[vehicleId], [rentals]);
 
   useEffect(() => {
@@ -71,7 +70,6 @@ const Vehicles = () => {
   }, [vehicles, rentals, searchTerm, statusFilter, typeFilter]);
 
   const fetchVehicles = async () => {
-    setLoading(true);
     try {
       const { data: vehiclesData, error: vehiclesError } = await supabase
         .from('vehicles')
@@ -462,7 +460,7 @@ const Vehicles = () => {
                         <span className="capitalize">{vehicle.fuel_type}</span>
                       </div>
                       <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">
-                        QR: {vehicle.id}
+                        QR: {vehicle.qr_code}
                       </div>
                     </CardContent>
                   </Card>
@@ -508,7 +506,7 @@ const Vehicles = () => {
                         <div>Location: {vehicle.location}</div>
                         <div>Fuel: <span className="capitalize">{vehicle.fuel_type}</span></div>
                         <div>Return by: {new Date(rental.expected_return_date).toLocaleDateString()}</div>
-                        <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">QR: {vehicle.id}</div>
+                        <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">QR: {vehicle.qr_code}</div>
                       </CardContent>
                     </Card>
                   );

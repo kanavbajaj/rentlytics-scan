@@ -11,6 +11,7 @@ import Layout from "@/components/Layout";
 import Vehicles from "./pages/Vehicles";
 import QRScanner from "./pages/QRScanner";
 import Profile from "./pages/Profile";
+import Anomalies from "./pages/Anomalies";
 
 const queryClient = new QueryClient();
 
@@ -63,6 +64,16 @@ const App = () => (
                     <QRScanner />
                   </Layout>
                 </DealerRoute>
+              }
+            />
+            <Route
+              path="/anomalies"
+              element={
+                <ProtectedRoute>
+                  <Layout>
+                    <Anomalies />
+                  </Layout>
+                </ProtectedRoute>
               }
             />
             <Route

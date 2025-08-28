@@ -1,7 +1,7 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Truck, LogOut, QrCode, User, Home } from 'lucide-react';
+import { Truck, LogOut, QrCode, User, Home, AlertTriangle } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 
@@ -70,6 +70,17 @@ const Layout = ({ children }: LayoutProps) => {
                 >
                   <Truck className="h-4 w-4" />
                   <span>Vehicles</span>
+                </Button>
+              </Link>
+
+              <Link to="/anomalies">
+                <Button
+                  variant={location.pathname === '/anomalies' ? 'default' : 'ghost'}
+                  size="sm"
+                  className="flex items-center space-x-2"
+                >
+                  <AlertTriangle className="h-4 w-4" />
+                  <span>Anomalies</span>
                 </Button>
               </Link>
               

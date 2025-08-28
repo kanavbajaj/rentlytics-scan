@@ -7,6 +7,8 @@ import { Button } from '@/components/ui/button';
 import { Truck, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
+import KpiCards from '@/components/KpiCards';
+import VehicleSummaryTable from '@/components/VehicleSummaryTable';
 
 interface Vehicle {
   id: string;
@@ -34,7 +36,7 @@ const Dashboard = () => {
   const role = profile?.role || 'user';
   const [vehicles, setVehicles] = useState<Vehicle[]>([]);
   const [rentals, setRentals] = useState<Rental[]>([]);
-  const [loading, setLoading] = useState(false);
+  const [loading, setLoading] = useState(true);
 
   useEffect(() => {
     if (user) {
@@ -43,7 +45,6 @@ const Dashboard = () => {
   }, [user, role]);
 
   const fetchData = async () => {
-    setLoading(true);
     try {
       const { data: vehiclesData, error: vehiclesError } = await supabase
         .from('vehicles')
@@ -109,7 +110,7 @@ const Dashboard = () => {
           <p className="text-muted-foreground">
             Welcome back, {profile?.name || user?.email}
             {profile?.role && (
-              <Badge variant="secondary" className="ml-2 capitalize">
+              <Badge className="ml-2 capitalize">
                 {profile.role}
               </Badge>
             )}
@@ -123,48 +124,11 @@ const Dashboard = () => {
         </Link>
       </div>
 
-      {/* Stats Grid */}
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-4 gap-4">
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Total Vehicles</CardTitle>
-            <Truck className="h-4 w-4 text-muted-foreground" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold">{vehicles.length}</div>
-          </CardContent>
-        </Card>
+      {/* Enhanced KPI Cards with Anomaly Detection */}
+      <KpiCards />
 
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Available</CardTitle>
-            <CheckCircle className="h-4 w-4 text-green-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-green-600">{availableVehicles.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Rented</CardTitle>
-            <Calendar className="h-4 w-4 text-blue-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-blue-600">{rentedVehicles.length}</div>
-          </CardContent>
-        </Card>
-
-        <Card>
-          <CardHeader className="flex flex-row items-center justify-between space-y-0 pb-2">
-            <CardTitle className="text-sm font-medium">Overdue</CardTitle>
-            <AlertTriangle className="h-4 w-4 text-red-500" />
-          </CardHeader>
-          <CardContent>
-            <div className="text-2xl font-bold text-red-600">{overdueRentals.length}</div>
-          </CardContent>
-        </Card>
-      </div>
+      {/* Vehicle Anomaly Summary Table */}
+      <VehicleSummaryTable />
 
       {/* Alerts */}
       {(overdueRentals.length > 0 || dueSoonRentals.length > 0) && (
