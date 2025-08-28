@@ -6,7 +6,8 @@ import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
-import { Truck, Search, MapPin, Fuel } from 'lucide-react';
+import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Truck, Search, MapPin, Fuel, Clock, Activity, Zap, Calendar, User, BarChart3 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Vehicle {
@@ -32,6 +33,17 @@ interface Rental {
   fuel_usage: number;
 }
 
+interface UserProfile {
+  id: string;
+  name: string;
+  role: string | null;
+  phone: string | null;
+  address: string | null;
+  created_at: string;
+  updated_at: string;
+  user_id: string;
+}
+
 const Vehicles = () => {
   const { user, profile } = useAuth();
   const role = profile?.role || 'user';
@@ -42,6 +54,10 @@ const Vehicles = () => {
   const [statusFilter, setStatusFilter] = useState('all');
   const [typeFilter, setTypeFilter] = useState('all');
   const [loading, setLoading] = useState(true);
+  const [selectedVehicle, setSelectedVehicle] = useState<Vehicle | null>(null);
+  const [selectedRental, setSelectedRental] = useState<Rental | null>(null);
+  const [selectedUser, setSelectedUser] = useState<UserProfile | null>(null);
+  const [isDetailModalOpen, setIsDetailModalOpen] = useState(false);
 
   const isVehicleRented = useMemo(() => (vehicleId: string) => !!rentals[vehicleId], [rentals]);
 
@@ -85,6 +101,59 @@ const Vehicles = () => {
     } finally {
       setLoading(false);
     }
+  };
+
+  const fetchUserProfile = async (userId: string) => {
+    try {
+      const { data, error } = await supabase
+        .from('profiles')
+        .select('*')
+        .eq('id', userId)
+        .single();
+      
+      if (error) throw error;
+      return data as UserProfile;
+    } catch (error: any) {
+      console.error('Error fetching user profile:', error);
+      return null;
+    }
+  };
+
+  const handleVehicleCardClick = async (vehicle: Vehicle) => {
+    setSelectedVehicle(vehicle);
+    const rental = rentals[vehicle.id];
+    setSelectedRental(rental || null);
+    
+    if (rental) {
+      const userProfile = await fetchUserProfile(rental.user_id);
+      setSelectedUser(userProfile);
+    }
+    
+    setIsDetailModalOpen(true);
+  };
+
+  const formatDuration = (minutes: number) => {
+    const hours = Math.floor(minutes / 60);
+    const mins = minutes % 60;
+    return `${hours}h ${mins}m`;
+  };
+
+  const formatFuelUsage = (usage: number) => {
+    return `${usage.toFixed(2)} L`;
+  };
+
+  const calculateRentalDuration = (checkOutDate: string, expectedReturnDate: string) => {
+    const checkOut = new Date(checkOutDate);
+    const expectedReturn = new Date(expectedReturnDate);
+    const now = new Date();
+    
+    const totalDuration = expectedReturn.getTime() - checkOut.getTime();
+    const elapsedDuration = now.getTime() - checkOut.getTime();
+    
+    const totalDays = Math.ceil(totalDuration / (1000 * 60 * 60 * 24));
+    const elapsedDays = Math.ceil(elapsedDuration / (1000 * 60 * 60 * 24));
+    
+    return { totalDays, elapsedDays };
   };
 
   const filterVehicles = () => {
@@ -257,7 +326,11 @@ const Vehicles = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {availableVehicles.map((vehicle) => (
-                  <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                  <Card 
+                    key={vehicle.id} 
+                    className="hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => handleVehicleCardClick(vehicle)}
+                  >
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div className="flex items-center space-x-3">
@@ -285,7 +358,10 @@ const Vehicles = () => {
                       </div>
                       <Button 
                         className="w-full" 
-                        onClick={() => handleRentVehicle(vehicle.id)}
+                        onClick={(e) => {
+                          e.stopPropagation();
+                          handleRentVehicle(vehicle.id);
+                        }}
                       >
                         Rent Vehicle
                       </Button>
@@ -308,7 +384,11 @@ const Vehicles = () => {
                 {filteredVehicles.filter(v => rentals[v.id]?.user_id === user?.id).map((vehicle) => {
                   const rental = rentals[vehicle.id]!;
                   return (
-                    <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                    <Card 
+                      key={vehicle.id} 
+                      className="hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => handleVehicleCardClick(vehicle)}
+                    >
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div className="flex items-center space-x-3">
@@ -349,7 +429,11 @@ const Vehicles = () => {
             <CardContent>
               <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
                 {filteredVehicles.map((vehicle) => (
-                  <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                  <Card 
+                    key={vehicle.id} 
+                    className="hover:shadow-lg transition-shadow cursor-pointer"
+                    onClick={() => handleVehicleCardClick(vehicle)}
+                  >
                     <CardHeader>
                       <div className="flex justify-between items-start">
                         <div className="flex items-center space-x-3">
@@ -397,7 +481,11 @@ const Vehicles = () => {
                 {filteredVehicles.filter(v => isVehicleRented(v.id)).map((vehicle) => {
                   const rental = rentals[vehicle.id]!;
                   return (
-                    <Card key={vehicle.id} className="hover:shadow-lg transition-shadow">
+                    <Card 
+                      key={vehicle.id} 
+                      className="hover:shadow-lg transition-shadow cursor-pointer"
+                      onClick={() => handleVehicleCardClick(vehicle)}
+                    >
                       <CardHeader>
                         <div className="flex justify-between items-start">
                           <div className="flex items-center space-x-3">
@@ -431,6 +519,222 @@ const Vehicles = () => {
           </Card>
         </>
       )}
+
+      {/* Vehicle Detail Modal */}
+      <Dialog open={isDetailModalOpen} onOpenChange={setIsDetailModalOpen}>
+        <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+          <DialogHeader>
+            <DialogTitle className="flex items-center space-x-3">
+              <div className="bg-primary/10 p-2 rounded-lg">
+                <Truck className="h-6 w-6 text-primary" />
+              </div>
+              <div>
+                <div className="text-2xl font-bold">{selectedVehicle?.name}</div>
+                <div className="text-lg text-muted-foreground capitalize">
+                  {selectedVehicle?.type} • {selectedVehicle?.capacity}
+                </div>
+              </div>
+            </DialogTitle>
+            <DialogDescription>
+              Detailed information about this vehicle and its current status
+            </DialogDescription>
+          </DialogHeader>
+
+          <div className="space-y-6">
+            {/* Vehicle Information */}
+            <Card>
+              <CardHeader>
+                <CardTitle className="flex items-center space-x-2">
+                  <MapPin className="h-5 w-5" />
+                  <span>Vehicle Information</span>
+                </CardTitle>
+              </CardHeader>
+              <CardContent className="grid grid-cols-2 gap-4">
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Type</div>
+                  <div className="font-medium capitalize">{selectedVehicle?.type}</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Capacity</div>
+                  <div className="font-medium">{selectedVehicle?.capacity}</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Location</div>
+                  <div className="font-medium">{selectedVehicle?.location}</div>
+                </div>
+                <div className="space-y-2">
+                  <div className="text-sm text-muted-foreground">Fuel Type</div>
+                  <div className="font-medium capitalize">{selectedVehicle?.fuel_type}</div>
+                </div>
+                <div className="space-y-2 col-span-2">
+                  <div className="text-sm text-muted-foreground">QR Code</div>
+                  <div className="font-mono text-sm bg-muted p-2 rounded">{selectedVehicle?.qr_code}</div>
+                </div>
+              </CardContent>
+            </Card>
+
+            {/* Rental Status */}
+            {selectedRental ? (
+              <>
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Calendar className="h-5 w-5" />
+                      <span>Rental Information</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-sm text-muted-foreground">Check Out Date</div>
+                        <div className="font-medium">
+                          {new Date(selectedRental.check_out_date).toLocaleDateString()} at{' '}
+                          {new Date(selectedRental.check_out_date).toLocaleTimeString()}
+                        </div>
+                      </div>
+                      <div className="space-y-2">
+                        <div className="text-sm text-muted-foreground">Expected Return</div>
+                        <div className="font-medium">
+                          {new Date(selectedRental.expected_return_date).toLocaleDateString()} at{' '}
+                          {new Date(selectedRental.expected_return_date).toLocaleTimeString()}
+                        </div>
+                      </div>
+                    </div>
+                    
+                    {selectedUser && (
+                      <div className="space-y-2">
+                        <div className="text-sm text-muted-foreground">Rented By</div>
+                        <div className="flex items-center space-x-2">
+                          <User className="h-4 w-4" />
+                          <span className="font-medium">{selectedUser.name}</span>
+                          <Badge variant="outline">{selectedUser.role}</Badge>
+                        </div>
+                      </div>
+                    )}
+
+                    {(() => {
+                      const { totalDays, elapsedDays } = calculateRentalDuration(
+                        selectedRental.check_out_date,
+                        selectedRental.expected_return_date
+                      );
+                      return (
+                        <div className="grid grid-cols-2 gap-4">
+                          <div className="space-y-2">
+                            <div className="text-sm text-muted-foreground">Total Rental Duration</div>
+                            <div className="font-medium">{totalDays} days</div>
+                          </div>
+                          <div className="space-y-2">
+                            <div className="text-sm text-muted-foreground">Days Elapsed</div>
+                            <div className="font-medium">{elapsedDays} days</div>
+                          </div>
+                        </div>
+                      );
+                    })()}
+                  </CardContent>
+                </Card>
+
+                {/* Performance Metrics */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <BarChart3 className="h-5 w-5" />
+                      <span>Performance Metrics</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="grid grid-cols-3 gap-6">
+                    <div className="text-center space-y-2">
+                      <div className="bg-blue-100 p-3 rounded-lg">
+                        <Clock className="h-8 w-8 text-blue-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-blue-600">
+                          {formatDuration(selectedRental.idle_time)}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">Idle Time</div>
+                    </div>
+                    
+                    <div className="text-center space-y-2">
+                      <div className="bg-green-100 p-3 rounded-lg">
+                        <Activity className="h-8 w-8 text-green-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-green-600">
+                          {formatDuration(selectedRental.working_time)}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">Working Time</div>
+                    </div>
+                    
+                    <div className="text-center space-y-2">
+                      <div className="bg-orange-100 p-3 rounded-lg">
+                        <Fuel className="h-8 w-8 text-orange-600 mx-auto mb-2" />
+                        <div className="text-2xl font-bold text-orange-600">
+                          {formatFuelUsage(selectedRental.fuel_usage)}
+                        </div>
+                      </div>
+                      <div className="text-sm text-muted-foreground">Fuel Usage</div>
+                    </div>
+                  </CardContent>
+                </Card>
+
+                {/* Efficiency Analysis */}
+                <Card>
+                  <CardHeader>
+                    <CardTitle className="flex items-center space-x-2">
+                      <Zap className="h-5 w-5" />
+                      <span>Efficiency Analysis</span>
+                    </CardTitle>
+                  </CardHeader>
+                  <CardContent className="space-y-4">
+                    <div className="grid grid-cols-2 gap-4">
+                      <div className="space-y-2">
+                        <div className="text-sm text-muted-foreground">Utilization Rate</div>
+                        <div className="text-2xl font-bold text-green-600">
+                          {selectedRental.working_time > 0 
+                            ? Math.round((selectedRental.working_time / (selectedRental.working_time + selectedRental.idle_time)) * 100)
+                            : 0}%
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Working time vs total time
+                        </div>
+                      </div>
+                      
+                      <div className="space-y-2">
+                        <div className="text-sm text-muted-foreground">Fuel Efficiency</div>
+                        <div className="text-2xl font-bold text-blue-600">
+                          {selectedRental.working_time > 0 
+                            ? (selectedRental.fuel_usage / (selectedRental.working_time / 60)).toFixed(2)
+                            : 0} L/hour
+                        </div>
+                        <div className="text-xs text-muted-foreground">
+                          Fuel consumption per working hour
+                        </div>
+                      </div>
+                    </div>
+                  </CardContent>
+                </Card>
+              </>
+            ) : (
+              <Card>
+                <CardHeader>
+                  <CardTitle className="flex items-center space-x-2">
+                    <Calendar className="h-5 w-5" />
+                    <span>Availability Status</span>
+                  </CardTitle>
+                </CardHeader>
+                <CardContent>
+                  <div className="text-center py-8">
+                    <div className="bg-green-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
+                      <Truck className="h-8 w-8 text-green-600" />
+                    </div>
+                    <div className="text-lg font-medium text-green-600">Vehicle Available</div>
+                    <div className="text-sm text-muted-foreground mt-2">
+                      This vehicle is currently available for rental
+                    </div>
+                  </div>
+                </CardContent>
+              </Card>
+            )}
+          </div>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
