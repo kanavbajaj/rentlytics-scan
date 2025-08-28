@@ -4,7 +4,7 @@ import { supabase } from '@/integrations/supabase/client';
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from '@/components/ui/card';
 import { Badge } from '@/components/ui/badge';
 import { Button } from '@/components/ui/button';
-import { Truck, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
+import { Construction, Calendar, AlertTriangle, CheckCircle } from 'lucide-react';
 import { Link } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import KpiCards from '@/components/KpiCards';
@@ -106,7 +106,7 @@ const Dashboard = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Dashboard</h1>
+          <h1 className="text-3xl font-bold text-foreground">CAT Equipment Hub</h1>
           <p className="text-muted-foreground">
             Welcome back, {profile?.name || user?.email}
             {profile?.role && (
@@ -118,8 +118,8 @@ const Dashboard = () => {
         </div>
         <Link to="/vehicles">
           <Button>
-            <Truck className="h-4 w-4 mr-2" />
-            View All Vehicles
+            <Construction className="h-4 w-4 mr-2" />
+            View All Equipment
           </Button>
         </Link>
       </div>
@@ -130,37 +130,48 @@ const Dashboard = () => {
       {/* Vehicle Anomaly Summary Table */}
       <VehicleSummaryTable />
 
-      {/* Alerts */}
+      {/* Equipment Alerts */}
       {(overdueRentals.length > 0 || dueSoonRentals.length > 0) && (
-        <Card>
+        <Card className="border-l-4 border-l-primary bg-gradient-to-r from-primary/5 to-background">
           <CardHeader>
             <CardTitle className="flex items-center space-x-2">
-              <AlertTriangle className="h-5 w-5 text-orange-500" />
-              <span>Alerts</span>
+              <AlertTriangle className="h-5 w-5 text-primary" />
+              <span>Equipment Alerts</span>
             </CardTitle>
+            <CardDescription>Critical equipment rental notifications</CardDescription>
           </CardHeader>
-          <CardContent className="space-y-2">
+          <CardContent className="space-y-3">
             {overdueRentals.map((rental) => (
-              <div key={rental.id} className="flex items-center justify-between p-3 bg-red-50 border border-red-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-red-800">Vehicle ID {rental.vehicle_id} - OVERDUE</p>
-                  <p className="text-sm text-red-600">
-                    Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
-                  </p>
+              <div key={rental.id} className="flex items-center justify-between p-4 bg-red-50 dark:bg-red-950/20 border-l-4 border-l-red-500 rounded-lg shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <Construction className="h-5 w-5 text-red-600" />
+                  <div>
+                    <p className="font-semibold text-red-800 dark:text-red-300">
+                      Equipment ID: {rental.vehicle_id.slice(0, 8)}... - OVERDUE
+                    </p>
+                    <p className="text-sm text-red-600 dark:text-red-400">
+                      Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <Badge variant="destructive">Overdue</Badge>
+                <Badge variant="destructive" className="font-medium">OVERDUE</Badge>
               </div>
             ))}
             
             {dueSoonRentals.map((rental) => (
-              <div key={rental.id} className="flex items-center justify-between p-3 bg-orange-50 border border-orange-200 rounded-lg">
-                <div>
-                  <p className="font-medium text-orange-800">Vehicle ID {rental.vehicle_id} - Due Soon</p>
-                  <p className="text-sm text-orange-600">
-                    Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
-                  </p>
+              <div key={rental.id} className="flex items-center justify-between p-4 bg-orange-50 dark:bg-orange-950/20 border-l-4 border-l-orange-500 rounded-lg shadow-sm">
+                <div className="flex items-center space-x-3">
+                  <Construction className="h-5 w-5 text-orange-600" />
+                  <div>
+                    <p className="font-semibold text-orange-800 dark:text-orange-300">
+                      Equipment ID: {rental.vehicle_id.slice(0, 8)}... - Due Soon
+                    </p>
+                    <p className="text-sm text-orange-600 dark:text-orange-400">
+                      Expected return: {new Date(rental.expected_return_date).toLocaleDateString()}
+                    </p>
+                  </div>
                 </div>
-                <Badge variant="secondary">Due Soon</Badge>
+                <Badge variant="secondary" className="bg-orange-100 text-orange-800 dark:bg-orange-900 dark:text-orange-200">DUE SOON</Badge>
               </div>
             ))}
           </CardContent>

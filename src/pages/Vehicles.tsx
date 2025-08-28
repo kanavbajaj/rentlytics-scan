@@ -7,7 +7,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '@/components/ui/dialog';
-import { Truck, Search, MapPin, Fuel, Clock, Activity, Zap, Calendar, User, BarChart3 } from 'lucide-react';
+import { Construction, Search, MapPin, Fuel, Clock, Activity, Zap, Calendar, User, BarChart3 } from 'lucide-react';
 import { toast } from '@/hooks/use-toast';
 
 interface Vehicle {
@@ -266,8 +266,8 @@ const Vehicles = () => {
     <div className="space-y-6">
       <div className="flex justify-between items-center">
         <div>
-          <h1 className="text-3xl font-bold text-foreground">Vehicles</h1>
-          <p className="text-muted-foreground">Manage and track all vehicles</p>
+          <h1 className="text-3xl font-bold text-foreground">CAT Equipment Fleet</h1>
+          <p className="text-muted-foreground">Manage and track all heavy equipment assets</p>
         </div>
       </div>
 
@@ -335,7 +335,7 @@ const Vehicles = () => {
                       <div className="flex justify-between items-start">
                         <div className="flex items-center space-x-3">
                           <div className="bg-primary/10 p-2 rounded-lg">
-                            <Truck className="h-5 w-5 text-primary" />
+                            <Construction className="h-5 w-5 text-primary" />
                           </div>
                           <div>
                             <CardTitle className="text-lg">{vehicle.name}</CardTitle>
@@ -393,7 +393,7 @@ const Vehicles = () => {
                         <div className="flex justify-between items-start">
                           <div className="flex items-center space-x-3">
                             <div className="bg-primary/10 p-2 rounded-lg">
-                              <Truck className="h-5 w-5 text-primary" />
+                              <Construction className="h-5 w-5 text-primary" />
                             </div>
                             <div>
                               <CardTitle className="text-lg">{vehicle.name}</CardTitle>
@@ -438,7 +438,7 @@ const Vehicles = () => {
                       <div className="flex justify-between items-start">
                         <div className="flex items-center space-x-3">
                           <div className="bg-primary/10 p-2 rounded-lg">
-                            <Truck className="h-5 w-5 text-primary" />
+                            <Construction className="h-5 w-5 text-primary" />
                           </div>
                           <div>
                             <CardTitle className="text-lg">{vehicle.name}</CardTitle>
@@ -471,52 +471,6 @@ const Vehicles = () => {
               )}
             </CardContent>
           </Card>
-
-          <Card>
-            <CardHeader>
-              <CardTitle>Active Rentals</CardTitle>
-            </CardHeader>
-            <CardContent>
-              <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
-                {filteredVehicles.filter(v => isVehicleRented(v.id)).map((vehicle) => {
-                  const rental = rentals[vehicle.id]!;
-                  return (
-                    <Card 
-                      key={vehicle.id} 
-                      className="hover:shadow-lg transition-shadow cursor-pointer"
-                      onClick={() => handleVehicleCardClick(vehicle)}
-                    >
-                      <CardHeader>
-                        <div className="flex justify-between items-start">
-                          <div className="flex items-center space-x-3">
-                            <div className="bg-primary/10 p-2 rounded-lg">
-                              <Truck className="h-5 w-5 text-primary" />
-                            </div>
-                            <div>
-                              <CardTitle className="text-lg">{vehicle.name}</CardTitle>
-                              <CardDescription className="capitalize">
-                                {vehicle.type} • {vehicle.capacity}
-                              </CardDescription>
-                            </div>
-                          </div>
-                          {getStatusBadge(vehicle)}
-                        </div>
-                      </CardHeader>
-                      <CardContent className="space-y-2 text-sm text-muted-foreground">
-                        <div>Location: {vehicle.location}</div>
-                        <div>Fuel: <span className="capitalize">{vehicle.fuel_type}</span></div>
-                        <div>Return by: {new Date(rental.expected_return_date).toLocaleDateString()}</div>
-                        <div className="text-xs text-muted-foreground bg-muted p-2 rounded font-mono">QR: {vehicle.qr_code}</div>
-                      </CardContent>
-                    </Card>
-                  );
-                })}
-              </div>
-              {filteredVehicles.filter(v => isVehicleRented(v.id)).length === 0 && (
-                <p className="text-sm text-muted-foreground">No active rentals.</p>
-              )}
-            </CardContent>
-          </Card>
         </>
       )}
 
@@ -526,7 +480,7 @@ const Vehicles = () => {
           <DialogHeader>
             <DialogTitle className="flex items-center space-x-3">
               <div className="bg-primary/10 p-2 rounded-lg">
-                <Truck className="h-6 w-6 text-primary" />
+                <Construction className="h-6 w-6 text-primary" />
               </div>
               <div>
                 <div className="text-2xl font-bold">{selectedVehicle?.name}</div>
@@ -722,7 +676,7 @@ const Vehicles = () => {
                 <CardContent>
                   <div className="text-center py-8">
                     <div className="bg-green-100 p-4 rounded-full w-16 h-16 mx-auto mb-4 flex items-center justify-center">
-                      <Truck className="h-8 w-8 text-green-600" />
+                      <Construction className="h-8 w-8 text-green-600" />
                     </div>
                     <div className="text-lg font-medium text-green-600">Vehicle Available</div>
                     <div className="text-sm text-muted-foreground mt-2">

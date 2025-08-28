@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Truck, CheckCircle, XCircle, Camera, Upload, FileText } from 'lucide-react';
+import { QrCode, Construction, CheckCircle, XCircle, Camera, Upload, FileText } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -661,7 +661,7 @@ const QRScanner = () => {
             <div className="flex justify-between items-start">
               <div className="flex items-center space-x-3">
                 <div className="bg-primary/10 p-2 rounded-lg">
-                  <Truck className="h-5 w-5 text-primary" />
+                  <Construction className="h-5 w-5 text-primary" />
                 </div>
                 <div>
                   <CardTitle>{vehicle.name}</CardTitle>
