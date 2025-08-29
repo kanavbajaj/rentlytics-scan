@@ -4,7 +4,7 @@ import { Button } from '@/components/ui/button';
 import { Input } from '@/components/ui/input';
 import { Label } from '@/components/ui/label';
 import { Badge } from '@/components/ui/badge';
-import { QrCode, Construction, CheckCircle, XCircle, Camera, Upload, FileText } from 'lucide-react';
+import { QrCode, Construction, CheckCircle, XCircle, Camera, Upload, FileText, Search } from 'lucide-react';
 import { supabase } from '@/integrations/supabase/client';
 import { toast } from '@/hooks/use-toast';
 import { useAuth } from '@/hooks/useAuth';
@@ -54,6 +54,13 @@ const QRScanner = () => {
   const [processingImage, setProcessingImage] = useState(false);
   const scannerRef = useRef<Html5Qrcode | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  
+  // New state for vehicle search
+  const [searchTerm, setSearchTerm] = useState('');
+  const [searchResults, setSearchResults] = useState<Vehicle[]>([]);
+  const [showSearchResults, setShowSearchResults] = useState(false);
+  const [searching, setSearching] = useState(false);
+  const searchRef = useRef<HTMLDivElement>(null);
 
   const handleScan = async (scannedId?: string) => {
     const id = scannedId || qrCode;
@@ -486,6 +493,119 @@ const QRScanner = () => {
     }
   };
 
+  // New function to search vehicles
+  const searchVehicles = async (term: string) => {
+    console.log('searchVehicles called with term:', term); // Debug log
+    
+    if (!term.trim()) {
+      setSearchResults([]);
+      setShowSearchResults(false);
+      return;
+    }
+
+    setSearching(true);
+    try {
+      console.log('Searching by name for:', term); // Debug log
+      // Search by name first
+      const { data: nameResults, error: nameError } = await supabase
+        .from('vehicles')
+        .select('*')
+        .ilike('name', `%${term}%`)
+        .limit(5)
+        .order('name');
+
+      console.log('Name search results:', nameResults); // Debug log
+      console.log('Name search error:', nameError); // Debug log
+
+      if (nameError) throw nameError;
+
+      // For ID search, we'll use exact matching since UUID doesn't support ilike
+      let idResults: any[] = [];
+      try {
+        console.log('Searching by ID for:', term); // Debug log
+        const { data: exactIdResults, error: exactIdError } = await supabase
+          .from('vehicles')
+          .select('*')
+          .eq('id', term.trim())
+          .limit(5);
+
+        console.log('Exact ID search results:', exactIdResults); // Debug log
+        console.log('Exact ID search error:', exactIdError); // Debug log
+
+        if (exactIdError) {
+          console.log('Exact ID search failed, skipping ID search'); // Debug log
+        } else {
+          idResults = exactIdResults || [];
+        }
+      } catch (idError) {
+        console.log('ID search error, continuing with name results only:', idError); // Debug log
+      }
+
+      // Combine and deduplicate results
+      const combinedResults = [...(nameResults || []), ...idResults];
+      const uniqueResults = combinedResults.filter((vehicle, index, self) => 
+        index === self.findIndex(v => v.id === vehicle.id)
+      );
+
+      console.log('Combined results:', uniqueResults); // Debug log
+
+      // Sort by name and limit to 10 results
+      const sortedResults = uniqueResults
+        .sort((a, b) => a.name.localeCompare(b.name))
+        .slice(0, 10);
+
+      console.log('Final sorted results:', sortedResults); // Debug log
+
+      setSearchResults(sortedResults);
+      setShowSearchResults(true);
+    } catch (error: any) {
+      console.error('Search error:', error);
+      toast({
+        title: 'Search Error',
+        description: error.message,
+        variant: 'destructive',
+      });
+      setSearchResults([]);
+    } finally {
+      setSearching(false);
+    }
+  };
+
+  // Handle search input changes
+  const handleSearchChange = (value: string) => {
+    console.log('Search term changed:', value); // Debug log
+    setSearchTerm(value);
+    if (value.trim()) {
+      console.log('Calling searchVehicles with:', value); // Debug log
+      searchVehicles(value);
+    } else {
+      setSearchResults([]);
+      setShowSearchResults(false);
+    }
+  };
+
+  // Handle vehicle selection from search results
+  const handleVehicleSelect = (selectedVehicle: Vehicle) => {
+    setQrCode(selectedVehicle.id);
+    setSearchTerm(selectedVehicle.name);
+    setShowSearchResults(false);
+    handleScan(selectedVehicle.id);
+  };
+
+  // Handle click outside to close search results
+  useEffect(() => {
+    const handleClickOutside = (event: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(event.target as Node)) {
+        setShowSearchResults(false);
+      }
+    };
+
+    document.addEventListener('mousedown', handleClickOutside);
+    return () => {
+      document.removeEventListener('mousedown', handleClickOutside);
+    };
+  }, []);
+
   return (
     <div className="space-y-6">
       <div>
@@ -546,10 +666,71 @@ const QRScanner = () => {
           {scanMode === "manual" && (
             <div className="space-y-4">
               <div className="space-y-2">
-                <Label htmlFor="qr-code">Vehicle ID</Label>
+                <Label htmlFor="vehicle-search">Search Vehicle</Label>
+                <div className="relative" ref={searchRef}>
+                  <Search className="absolute left-3 top-3 h-4 w-4 text-muted-foreground" />
+                  <Input
+                    id="vehicle-search"
+                    placeholder="Search by vehicle ID or name..."
+                    value={searchTerm}
+                    onChange={(e) => handleSearchChange(e.target.value)}
+                    onFocus={() => searchTerm.trim() && setShowSearchResults(true)}
+                    className="pl-10"
+                  />
+                  {searching && (
+                    <div className="absolute right-3 top-3">
+                      <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary"></div>
+                    </div>
+                  )}
+                  
+                  {/* Search Results Dropdown - Fixed positioning */}
+                  {showSearchResults && (
+                    <div className="absolute z-50 w-full mt-1 bg-background border border-border rounded-lg shadow-lg max-h-60 overflow-y-auto">
+                      {searching ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          <div className="animate-spin rounded-full h-4 w-4 border-b-2 border-primary mx-auto mb-2"></div>
+                          Searching...
+                        </div>
+                      ) : searchResults.length > 0 ? (
+                        <>
+                          <div className="p-2 text-xs text-muted-foreground border-b">
+                            Found {searchResults.length} vehicle(s)
+                          </div>
+                          {searchResults.map((result) => (
+                            <div
+                              key={result.id}
+                              className="p-3 hover:bg-muted cursor-pointer border-b border-border last:border-b-0"
+                              onClick={() => handleVehicleSelect(result)}
+                            >
+                              <div className="flex items-center justify-between">
+                                <div>
+                                  <p className="font-medium">{result.name}</p>
+                                  <p className="text-sm text-muted-foreground">
+                                    ID: {result.id} • {result.type} • {result.location}
+                                  </p>
+                                </div>
+                                <Badge variant={result.is_rented ? "destructive" : "secondary"}>
+                                  {result.is_rented ? "Rented" : "Available"}
+                                </Badge>
+                              </div>
+                            </div>
+                          ))}
+                        </>
+                      ) : searchTerm.trim() ? (
+                        <div className="p-4 text-center text-muted-foreground">
+                          No vehicles found matching "{searchTerm}"
+                        </div>
+                      ) : null}
+                    </div>
+                  )}
+                </div>
+              </div>
+
+              <div className="space-y-2">
+                <Label htmlFor="qr-code">Vehicle ID (Direct Input)</Label>
                 <Input
                   id="qr-code"
-                  placeholder="Enter vehicle ID..."
+                  placeholder="Enter vehicle ID directly..."
                   value={qrCode}
                   onChange={(e) => setQrCode(e.target.value)}
                   onKeyDown={(e) => e.key === 'Enter' && handleScan()}
