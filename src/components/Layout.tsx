@@ -1,10 +1,13 @@
 import { useAuth } from '@/hooks/useAuth';
 import { Button } from '@/components/ui/button';
 import { supabase } from '@/integrations/supabase/client';
-import { Construction, LogOut, QrCode, User, Home, AlertTriangle } from 'lucide-react';
+import { Construction, LogOut, QrCode, User, Home, AlertTriangle, Sparkles } from 'lucide-react';
 import { Link, useLocation } from 'react-router-dom';
 import { toast } from '@/hooks/use-toast';
 import { ModeToggle } from '@/components/mode-toggle';
+import { useState, useEffect } from 'react';
+import { Dialog, DialogContent, DialogHeader, DialogTitle, DialogTrigger } from '@/components/ui/dialog';
+import VehicleRecommendation from '@/components/VehicleRecommendation';
 
 interface LayoutProps {
   children: React.ReactNode;
@@ -14,6 +17,8 @@ const Layout = ({ children }: LayoutProps) => {
   const { user, profile } = useAuth();
   const role = profile?.role || 'user';
   const location = useLocation();
+  const [availableVehicles, setAvailableVehicles] = useState<any[]>([]);
+  const [isDialogOpen, setIsDialogOpen] = useState(false);
 
   const cleanupAuthState = () => {
     Object.keys(localStorage).forEach((key) => {
@@ -40,6 +45,27 @@ const Layout = ({ children }: LayoutProps) => {
       });
     }
   };
+
+  const fetchAvailableVehicles = async () => {
+    try {
+      const { data: vehiclesData, error: vehiclesError } = await supabase
+        .from('vehicles')
+        .select('*')
+        .eq('is_rented', false)
+        .order('name');
+
+      if (vehiclesError) throw vehiclesError;
+      setAvailableVehicles(vehiclesData || []);
+    } catch (error: any) {
+      console.error('Error fetching vehicles:', error);
+    }
+  };
+
+  useEffect(() => {
+    if (user && isDialogOpen) {
+      fetchAvailableVehicles();
+    }
+  }, [user, isDialogOpen]);
 
   return (
     <div className="min-h-screen bg-background">
@@ -89,6 +115,32 @@ const Layout = ({ children }: LayoutProps) => {
                   <span>Anomalies</span>
                 </Button>
               </Link>
+
+              {role !== 'dealer' && (
+                <Dialog open={isDialogOpen} onOpenChange={setIsDialogOpen}>
+                  <DialogTrigger asChild>
+                    <Button
+                      variant="outline"
+                      size="sm"
+                      className="flex items-center space-x-2 bg-gradient-to-r from-purple-500/10 to-blue-500/10 border-purple-200 dark:border-purple-800 hover:from-purple-500/20 hover:to-blue-500/20"
+                    >
+                      <Sparkles className="h-4 w-4 text-purple-600" />
+                      <span>AI Recommendations</span>
+                    </Button>
+                  </DialogTrigger>
+                  <DialogContent className="max-w-4xl max-h-[90vh] overflow-y-auto">
+                    <DialogHeader>
+                      <DialogTitle className="flex items-center space-x-2">
+                        <Sparkles className="h-5 w-5 text-purple-600" />
+                        <span>AI Vehicle Recommendations</span>
+                      </DialogTitle>
+                    </DialogHeader>
+                    <div className="py-4">
+                      <VehicleRecommendation availableVehicles={availableVehicles} />
+                    </div>
+                  </DialogContent>
+                </Dialog>
+              )}
               
               {role === 'dealer' && (
                 <Link to="/scanner">

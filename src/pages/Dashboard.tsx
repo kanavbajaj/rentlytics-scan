@@ -10,6 +10,7 @@ import { toast } from '@/hooks/use-toast';
 import KpiCards from '@/components/KpiCards';
 import VehicleSummaryTable from '@/components/VehicleSummaryTable';
 
+
 interface Vehicle {
   id: string;
   type: string;
@@ -17,6 +18,7 @@ interface Vehicle {
   capacity: string;
   is_rented: boolean;
   location: string;
+  fuel_type: string;
 }
 
 interface Rental {
@@ -116,12 +118,14 @@ const Dashboard = () => {
             )}
           </p>
         </div>
-        <Link to="/vehicles">
-          <Button>
-            <Construction className="h-4 w-4 mr-2" />
-            View All Equipment
-          </Button>
-        </Link>
+        <div className="flex space-x-2">
+          <Link to="/vehicles">
+            <Button>
+              <Construction className="h-4 w-4 mr-2" />
+              View All Equipment
+            </Button>
+          </Link>
+        </div>
       </div>
 
       {/* Enhanced KPI Cards with Anomaly Detection */}
